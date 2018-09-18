@@ -17,8 +17,6 @@ import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.saver12.service.impl.UserServiceImpl.EMPTY_REQUEST_BODY;
 
@@ -34,8 +32,6 @@ public class TransferServiceImpl implements TransferService {
 
     private final AccountService accountService;
     private final UserService userService;
-
-    private final Lock lock = new ReentrantLock();
 
     @Inject
     public TransferServiceImpl(AccountService accountService, UserService userService) {
@@ -77,35 +73,42 @@ public class TransferServiceImpl implements TransferService {
     private Transfer makeTransfer(TransferDTO transfer) {
         Transfer saved;
         Currency transferCurrency = Currency.getInstance(transfer.getCurrency());
-        lock.lock();
         try {
             Account source = accountService.getAccount(transfer.getSourceAccountId());
             Account destination = accountService.getAccount(transfer.getDestinationAccountId());
             // if User is not present, exception is thrown
             userService.getUser(source.getUserId());
             userService.getUser(destination.getUserId());
-            if (source.getCurrency().equals(transferCurrency) &&
-                    destination.getCurrency().equals(transferCurrency) &&
-                    transfer.getAmount().compareTo(BigDecimal.ZERO) > 0 &&
-                    source.getBalance().compareTo(transfer.getAmount()) >= 0) {
 
-                accountService.updateAccount(source.getId(), new AccountDTO(null,
-                        source.getBalance().subtract(transfer.getAmount()),
-                        source.getCurrency().getCurrencyCode()));
-                accountService.updateAccount(destination.getId(), new AccountDTO(null,
-                        destination.getBalance().add(transfer.getAmount()),
-                        destination.getCurrency().getCurrencyCode()));
+            Account first = source.getId() < destination.getId() ? source : destination;
+            Account second = source.getId() < destination.getId() ? destination : source;
 
-                saved = new Transfer(GENERATED_ID.getAndIncrement(), transfer.getSourceAccountId(),
-                        transfer.getDestinationAccountId(), transferCurrency,
-                        transfer.getAmount(), Status.EXECUTED, TRANSFER_SUCCESS);
-            } else throw new AppException(TRANSFER_FAILED);
+            synchronized (first) {
+                synchronized (second) {
+                    if (source.getCurrency().equals(transferCurrency) &&
+                            destination.getCurrency().equals(transferCurrency) &&
+                            transfer.getAmount().compareTo(BigDecimal.ZERO) > 0 &&
+                            source.getBalance().compareTo(transfer.getAmount()) >= 0) {
+
+                        accountService.updateAccount(source.getId(), new AccountDTO(null,
+                                source.getBalance().subtract(transfer.getAmount()),
+                                source.getCurrency().getCurrencyCode()));
+                        accountService.updateAccount(destination.getId(), new AccountDTO(null,
+                                destination.getBalance().add(transfer.getAmount()),
+                                destination.getCurrency().getCurrencyCode()));
+
+                        saved = new Transfer(GENERATED_ID.getAndIncrement(), transfer.getSourceAccountId(),
+                                transfer.getDestinationAccountId(), transferCurrency,
+                                transfer.getAmount(), Status.EXECUTED, TRANSFER_SUCCESS);
+                    } else {
+                        throw new AppException(TRANSFER_FAILED);
+                    }
+                }
+            }
         } catch (AppException ex) {
             saved = new Transfer(GENERATED_ID.getAndIncrement(), transfer.getSourceAccountId(),
                     transfer.getDestinationAccountId(), transferCurrency,
                     transfer.getAmount(), Status.FAILED, ex.getMessage());
-        } finally {
-            lock.unlock();
         }
 
         return saved;
