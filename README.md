@@ -4,7 +4,7 @@ RESTful API for money transfers between accounts
 
 ## Technologies
 * Jersey 2.7
-* Jetty Container 9.2.3.v20140905
+* Jetty Container 9.3.24.v20180605
 * JUnit 4.8.2
 * Lombok 1.18.2 (for IntelliJ IDEA 'Enable annotation processing' should be turned on)
 * Genson 0.98 (for JSON conversion)
