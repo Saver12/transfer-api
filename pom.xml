@@ -14,7 +14,7 @@
         <fastjson.version>1.2.49</fastjson.version>
         <genson.version>0.98</genson.version>
         <jersey.version>2.7</jersey.version>
-        <jetty.version>9.3.24.v20180605</jetty.version>
+        <jetty.version>[9.4.12.v20180830,)</jetty.version>
         <junit.version>4.12</junit.version>
         <lombok.version>1.18.2</lombok.version>
         <maven-compiler.version>2.3.2</maven-compiler.version>
